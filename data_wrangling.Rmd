@@ -1,0 +1,80 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(dplyr)
+```
+
+```{r}
+df <- read.csv("./data/btc/btc-out.csv", sep = '\t')
+df$DateTime_UTC <- df$DateTime_UTC %>% as.POSIXct()
+df %>% head
+```
+
+
+```{r}
+returns <- df %>% 
+  filter(DateTime_UTC > '2015-01-01') %>%
+  select(close_price_returns)
+returns <- returns$close_price_returns
+hist((log(returns)))
+hist(log(log(returns)))
+range(returns)
+summary(returns)
+
+r2 <- returns[abs(returns) < 1]
+summary(r2)
+```
+
+```{r}
+hist(r2)
+```
+
+
+```{r}
+returns_less_than_.1 <- returns[abs(returns) < .1 & returns != 0]
+hist(returns_less_than_.1)
+```
+
+```{r}
+returns_less_than_.01 <- returns[abs(returns) < .01 & returns != 0]
+hist(returns_less_than_.01)
+
+```
+
+
+```{r}
+returns_less_than_.001 <- returns[abs(returns) < .001 & returns != 0]
+hist(returns_less_than_.001)
+```
+
+```{r}
+# length(returns_less_than_.001)
+# length(returns_less_than_.01)
+# (length(returns) - length(returns_less_than_.1))/length(returns)
+
+(length(returns[abs(returns) > 5])/length(returns))
+(length(returns[abs(returns) > 4])/length(returns))
+(length(returns[abs(returns) > 3])/length(returns))
+(length(returns[abs(returns) > 2])/length(returns))
+(length(returns[abs(returns) > 1])/length(returns))
+(length(returns[abs(returns) > 5])/length(returns))
+(length(returns[abs(returns) > 5])/length(returns))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

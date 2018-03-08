@@ -1,0 +1,200 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+
+# Libraries
+```{r}
+library(quantmod)
+library(tseries)
+library(timeSeries)
+library(forecast)
+library(xts)
+library(dplyr)
+
+library(foreach)
+library(doParallel)
+```
+
+```{r}
+data <- read.csv("./data/btc/btc-out.csv", sep = "\t", header = TRUE)
+
+```
+
+```{r}
+adf.test(data$price_close)
+```
+```{r}
+data_diff <- data$price_close %>% diff(lag = 1)
+adf.test(data_diff)
+```
+```{r}
+data_logdiff <- data$price_close %>% log() %>% diff(lag=1)
+adf.test(data_logdiff)
+```
+
+```{r}
+
+```
+
+
+
+```{r}
+head(data)
+```
+
+```{r}
+# Initialzing an xts object for Actual log returns
+actual_series = xts(0, as.POSIXct("2015-01-07 20:20:00	","%Y-%m-%d %H:%M:%S"))
+ 
+# Initialzing a dataframe for the forecasted return series
+forecasted_series = data.frame(Forecasted = numeric())
+
+# Split the dataset in two parts - training and testing
+stock <- data[2:nrow(data), ]
+stock$diff <- diff(data$price_close, lag=1)
+stock$logdiff <- diff(log(data$price_close), lag=1)
+breakpoint = floor(nrow(stock)*(.8))
+```
+
+```{r}
+m1 <- auto.arima(stock$diff)
+m2 <- auto.arima(stock$diff, max.P = 30, max.Q = 30, max.order = 60)
+```
+
+```{r}
+summary(m2)
+m3 <- auto.arima(stock_train, max.P = 30, max.Q = 30, max.order = 60)
+```
+
+# sliding windows
+
+```{r}
+
+# for (b in breakpoint:(nrow(stock)-1)) {
+  cat(paste0("\rWorking on itteration: ", (b-breakpoint+1), "/", (nrow(stock)-1-breakpoint)))
+  
+  b <- breakpoint
+  
+  stock_train = stock[1:b, "diff"]
+  stock_test = stock[(b+1):nrow(stock), "diff"]
+  
+  
+  # Summary of the ARIMA model using the determined (p,d,q) parameters
+  fit = ARIMA(stock_train, order = c(4, 0, 5))
+  summary(fit)
+  
+  # plotting a acf plot of the residuals
+  acf(fit$residuals,main="Residuals plot")
+  
+  # Forecasting the log returns
+  # arima.forecast = forecast.Arima(fit, h = 1,level=99)
+  arima.forecast = forecast(fit, h = 1,level=99)
+  summary(arima.forecast)
+  
+  # plotting the forecast
+  par(mfrow=c(1,1))
+  plot(arima.forecast, main = "ARIMA Forecast")
+  
+  # Creating a series of forecasted returns for the forecasted period
+  forecasted_series = rbind(forecasted_series,arima.forecast$mean[1])
+  colnames(forecasted_series) = c("Forecasted")
+  
+  # Creating a series of actual returns for the forecasted period
+  actual_return = stock[(b+1),]
+  actual_series = c(Actual_series,xts(Actual_return))
+  rm(actual_return)
+  
+  print(stock_prices[(b+1),])
+  print(stock_prices[(b+2),])
+
+# }
+
+```
+
+
+
+# Parallel Sliding windows
+```{r}
+no_cores <- detectCores() - 2 # 8 cores on server
+cluster <- makeCluster(no_cores)
+registerDoParallel(cluster)
+```
+
+```{r}
+#Vector output
+foreach(exponent = 1:5, .combine = c)  %dopar%  base^exponent
+ 
+ 
+#Matrix output
+foreach(exponent = 1:5, .combine = rbind)  %dopar%  base^exponent
+
+ 
+#List output
+foreach(exponent = 1:5, .combine = list, .multicombine=TRUE)  %dopar%  base^exponent
+
+ 
+stopImplicitCluster()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

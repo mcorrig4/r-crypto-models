@@ -1,0 +1,200 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+# install.packages("keras")
+# library(keras)
+# install_keras()
+
+```
+
+# Libraries
+```{r}
+library(quantmod)
+library(tseries)
+library(timeSeries)
+library(forecast)
+library(xts)
+library(dplyr)
+
+```
+
+```{r}
+df <- read.csv("./data/bitcoin_coinbase_M5.csv", sep = "\t", header = TRUE)
+df2 <- read.csv("./data/btc-out.csv", sep = "\t", header = TRUE)
+head(df2)
+```
+
+```{r}
+df$DateTime_UTC <- as.POSIXct(df$DateTime_UTC)
+df2$DateTime_UTC <- as.POSIXct(df2$DateTime_UTC)
+# quantiles ==== [(-42.016, -0.185], (-0.185, -0.0749], (-0.0749, -0.0298], (-0.0298, -0.00504], (-0.00504, 0.0], (0.0, 0.0131], (0.0131, 0.0394], (0.0394, 0.085], (0.085, 0.19], (0.19, 67.889]
+head(df)
+```
+
+
+```{r}
+data <- df2
+N <- nrow(data)
+plot(data$price_close, type = "l")
+```
+
+```{r}
+plot(diff(data$price_close), type = "l", main = "Original data")
+
+```
+
+
+```{r}
+# plot(diff(log(ms)), type = "l", main = "Log-transformed data")
+
+```
+
+```{r}
+plot(diff(sqrt(ms)), type = "l", main = "Square root transformed data")
+
+```
+
+
+```{r}
+stats::acf(diff(log(data$price_close)))
+
+```
+
+```{r}
+ms_df <- diff(log(data$price_close))
+#ms_ts <- ts(ms_df,frequency = 365,start = 2015 )
+#plot(ms_ts)
+#ms_de <- decompose(ms_ts)
+#plot(ms_de)
+```
+
+```{r}
+make_aic_table <- function(data, P_end, Q_end, P_start = 0, Q_start = 0){
+  table <- matrix(NA,(P_end-P_start+1),(Q_end-Q_start+1))
+  for(p in P_start:P_end) {
+    for(q in Q_start:Q_end) {
+      cat(paste0("\rP: ", p, " and Q: ", q))
+       table[p-P_start+1,q-Q_start+1] <- arima(data,order=c(p,0,q))$aic
+    }
+  }
+  dimnames(table) <- list(paste("<b> AR",P_start:P_end, "</b>", sep=""),paste("MA",Q_start:Q_end,sep=""))
+  table
+}
+```
+
+```{r}
+# table(aic_table(ms_df,40,40),digits=2)
+
+```
+
+```{r}
+spfinal.aic <- Inf
+spfinal.order <- c(0,0,0)
+for (i in 0:4) for (j in 0:4) {
+  print(paste0("Testing i: ", i, " and j: ", j))
+  spcurrent.aic <- AIC(arima(ms_df, order=c(i, 0, j)))
+  if (spcurrent.aic < spfinal.aic) {
+    spfinal.aic <- spcurrent.aic
+    spfinal.order <- c(i, 0, j)
+  }
+}
+```
+
+```{r}
+spfinal.order
+# 4,0,4
+```
+
+```{r}
+spfinal.aic <- Inf
+spfinal.order <- c(0,0,0)
+make_aic_table(ms_df, 7, 7, 4, 4)
+```
+
+```{r}
+price_close <- data$price_close %>% log() %>% diff(lag = 1)
+m1_arima <- arima(price_close, order=c(30, 0, 30))
+arima
+```
+
+```{r}
+m2_arima <- arima(price_close, 7, 0, 7)
+```
+
+
+
+
+```{r}
+# Pull data from Yahoo finance 
+getSymbols('TECHM.NS', from='2012-01-01', to='2015-01-01')
+
+# Select the relevant close price series
+stock_prices = TECHM.NS[,4]
+In the next step, we compute the logarithmic returns of the stock as we want the ARIMA model to forecast the log returns and not the stock price. We also plot the log return series using the plot function.
+
+# Compute the log returns for the stock
+stock = diff(log(stock_prices),lag=1)
+stock = stock[!is.na(stock)]
+
+# Plot log returns 
+plot(stock,type='l', main='log returns plot')
+
+```
+
+```{r}
+y <- diff(log(df$price_close))
+
+adf.test(y, alternative = "stationary")
+m_arima <- auto.arima(y, max.p = )
+?auto.arima
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

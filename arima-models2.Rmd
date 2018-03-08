@@ -1,0 +1,137 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+# install.packages("keras")
+# library(keras)
+# install_keras()
+
+```
+
+# Libraries
+```{r}
+library(quantmod)
+library(tseries)
+library(timeSeries)
+library(forecast)
+library(xts)
+library(dplyr)
+```
+
+```{r}
+data <- read.csv("./data/btc/btc-out.csv", sep = "\t", header = TRUE)
+```
+
+```{r}
+data$DateTime_UTC <- as.POSIXct(data$DateTime_UTC)
+```
+
+
+
+```{r}
+y <- diff(log(data$price_close), lag=1)
+
+adf.test(y, alternative = "stationary")
+```
+
+```{r}
+# m1 <- auto.arima(y, 
+#                  # stepwise = FALSE,
+#                  # approximation = FALSE,
+#                  # d = 1,
+#                  # max.p = 30,
+#                  # max.q = 30,
+#                  # max.order = 60,
+#                  seasonal = FALSE,
+#                  parallel = TRUE,
+#                  num.cores = 3,
+#                  trace = TRUE,
+#                  method= "CSS" #"ML"
+#                  )
+# 
+# class(y)
+
+m2 <- arima(y, c(30, 0, 30), method="CSS")
+```
+
+
+
+
+```{r}
+daily_data$cnt_ma = ma(daily_data$clean_cnt, order=7) # using the clean count with no outliers
+daily_data$cnt_ma30 = ma(daily_data$clean_cnt, order=30)
+
+
+ggplot() +
+  geom_line(data = daily_data, aes(x = Date, y = clean_cnt, colour = "Counts")) +
+  geom_line(data = daily_data, aes(x = Date, y = cnt_ma,   colour = "Weekly Moving Average"))  +
+  geom_line(data = daily_data, aes(x = Date, y = cnt_ma30, colour = "Monthly Moving Average"))  +
+  ylab('Bicycle Count')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+m_arima <- auto.arima(y, max.p = )
+?auto.arima
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
