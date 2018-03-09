@@ -6,64 +6,149 @@ output: html_notebook
 
 ```{r}
 library(dplyr)
+library(lubridate)
+library(zoo)
+library(readr)
 ```
 
 ```{r}
-df <- read.csv("./data/btc/btc-out.csv", sep = '\t')
+df <- read_csv("./data/btc/df-out.csv", sep = '\t')
+df_raw <- read_csv("./data/btc/coinbaseUSD.csv")
+
 df$DateTime_UTC <- df$DateTime_UTC %>% as.POSIXct()
 df %>% head
 ```
 
-
 ```{r}
-returns <- df %>% 
-  filter(DateTime_UTC > '2015-01-01') %>%
-  select(close_price_returns)
-returns <- returns$close_price_returns
-hist((log(returns)))
-hist(log(log(returns)))
-range(returns)
-summary(returns)
-
-r2 <- returns[abs(returns) < 1]
-summary(r2)
+d2 <- df
 ```
 
 ```{r}
-hist(r2)
+df <- d2
+
+df <- df %>% select(-X, -close_price_returns_bins, -DateTime_UTCIs_month_end, -DateTime_UTCIs_month_start, -DateTime_UTCIs_quarter_end, -DateTime_UTCIs_quarter_start, -DateTime_UTCIs_year_end, -DateTime_UTCIs_year_start, -close_price_returns_y)
+
+df <- df %>% 
+  rename(date = DateTime_UTC,
+         close_price_returns = close_price_returns_x,
+         year = DateTime_UTCYear,
+         month = DateTime_UTCMonth,
+         week = DateTime_UTCWeek,
+         day = DateTime_UTCDay,
+         dayofweek = DateTime_UTCDayofweek,
+         dayofyear = DateTime_UTCDayofyear)
+
+y <- df$price_close
+
+y <- y[2:length(y)]
+df <- df[1:nrow(df)-1, ]
+
+df <- cbind(data.frame(y=y), df)
+
 ```
 
+#### More Featurue engineering maybe
+rolling quantils thing for:
+  - sum(volume)
+  - sum(volume) / max(last7 volumes)
+  - return labels
+  - sequential down/up
+  - return (like a moving average)
+
+Might also be good to have number of ticks per time period (number of trades happening, not just overall volume). Need to go back to the data generator for that one.
+
+Also want to get high and low incorporated in there somehow...
+  - high's % over close
+  - low's % under close
+  
+Also need more time features:
+  - Hour, Minute, and Second
+  
+  
+```{r}
+d <- df %>%
+  mutate(hour = hour(date)) %>%
+  mutate(minute = minute(date)) %>% 
+  mutate(up = if_else(lag(price_close) < price_close, 1, 0)) %>%
+  mutate(down = if_else(lag(price_close) > price_close, 1, 0)) %>%
+  mutate(up = if_else(is.na(up), 0, up)) %>%
+  mutate(down = if_else(is.na(down), 1, down)) %>%
+  mutate(per_high = (price_high - price_close)/price_close) %>%
+  mutate(per_low = (price_close - price_low)/price_close) %>%
+  # mutate(per_vol = volume*price_close/price_close) %>%
+  # rolling 3
+  mutate(rolling_3_volume = rollapply(volume, 3, mean, align = 'right', fill=volume)) %>%
+  mutate(rolling_3_volume_over_max = rollapply(volume, 3, sum, align = 'right', fill=volume)) %>%
+  mutate(rolling_3_volume_over_max = rolling_3_volume_over_max / max(1e-7, rollapply(volume, 7, # using 7 to be interesting
+                                                                           max, align = 'right', fill=rolling_3_volume))) %>%
+  mutate(rolling_3_return = rollapply(close_price_returns, 3, mean, align = 'right', fill=close_price_returns)) %>%
+  mutate(rolling_3_return_labels = rollapply(close_price_returns_labels, 3, mean, align = 'right', fill=close_price_returns_labels)) %>%
+  mutate(rolling_3_seq_down = rollapply(down, 3, sum, align = 'right', fill=0)) %>%
+  mutate(rolling_3_seq_up = rollapply(up, 3, sum, align = 'right', fill=0)) %>%
+  #rolling 7
+  mutate(rolling_7_volume = rollapply(volume, 7, mean, align = 'right', fill=volume)) %>%
+  mutate(rolling_7_volume_over_max = rollapply(volume, 7, sum, align = 'right', fill=volume)) %>%
+  mutate(rolling_7_volume_over_max = rolling_7_volume_over_max / max(1e-7, rollapply(volume, 7, max, align = 'right', fill=rolling_7_volume))) %>%
+  mutate(rolling_7_return = rollapply(close_price_returns, 7, mean, align = 'right', fill=close_price_returns)) %>%
+  mutate(rolling_7_return_labels = rollapply(close_price_returns_labels, 7, mean, align = 'right', fill=close_price_returns_labels)) %>%
+  mutate(rolling_7_seq_down = rollapply(down, 7, sum, align = 'right', fill=0)) %>%
+  mutate(rolling_7_seq_up = rollapply(up, 7, sum, align = 'right', fill=0)) %>%
+  # rolling 10
+  mutate(rolling_10_volume = rollapply(volume, 10, mean, align = 'right', fill=volume)) %>%
+  mutate(rolling_10_volume_over_max = rollapply(volume, 10, sum, align = 'right', fill=volume)) %>%
+  mutate(rolling_10_volume_over_max = rolling_10_volume_over_max / max(1e-7, rollapply(volume, 10, max, align = 'right', fill=rolling_10_volume))) %>%
+  mutate(rolling_10_return = rollapply(close_price_returns, 10, mean, align = 'right', fill=close_price_returns)) %>%
+  mutate(rolling_10_return_labels = rollapply(close_price_returns_labels, 10, mean, align = 'right', fill=close_price_returns_labels)) %>%
+  mutate(rolling_10_seq_down = rollapply(down, 10, sum, align = 'right', fill=0)) %>%
+  mutate(rolling_10_seq_up = rollapply(up, 10, sum, align = 'right', fill=0)) %>%
+  # rolling 20
+  mutate(rolling_20_volume = rollapply(volume, 20, mean, align = 'right', fill=volume)) %>%
+  mutate(rolling_20_volume_over_max = rollapply(volume, 20, sum, align = 'right', fill=volume)) %>%
+  mutate(rolling_20_volume_over_max = rolling_20_volume_over_max / max(1e-7, rollapply(volume, 20, max, align = 'right', fill=rolling_20_volume))) %>%
+  mutate(rolling_20_return = rollapply(close_price_returns, 20, mean, align = 'right', fill=close_price_returns)) %>%
+  mutate(rolling_20_return_labels = rollapply(close_price_returns_labels, 20, mean, align = 'right', fill=close_price_returns_labels)) %>%
+  mutate(rolling_20_seq_down = rollapply(down, 20, sum, align = 'right', fill=0)) %>%
+  mutate(rolling_20_seq_up = rollapply(up, 20, sum, align = 'right', fill=0)) %>%
+
+  mutate(UP = if_else(close_price_returns > 1e-4, 1, 0)) %>%
+  mutate(DOWN = if_else(close_price_returns < -1*1e-4, 1, 0)) %>%
+  mutate(HOLD = if_else(UP == DOWN, 1, 0))
+  
+d %>%
+  # select(date, y, price_close, close_price_returns, up, down) %>%
+  # select(date, y, price_close, close_price_returns, up, down, UP, DOWN, HOLD) %>%
+  # select(date, y, price_close, volume,
+  #        rolling_3_volume, rolling_3_volume_over_max, rolling_3_return, 
+  #        rolling_3_return_labels, rolling_3_seq_down, rolling_3_seq_up) %>%
+  # filter(date > '2015-01-27') %>% # this seems to be the start of real trading 
+  summary
+  
+names(d)
+
+```
 
 ```{r}
-returns_less_than_.1 <- returns[abs(returns) < .1 & returns != 0]
-hist(returns_less_than_.1)
-```
-
-```{r}
-returns_less_than_.01 <- returns[abs(returns) < .01 & returns != 0]
-hist(returns_less_than_.01)
-
+write.csv(d, "./data/btc/btc-final.csv", sep = "\t")
 ```
 
 
-```{r}
-returns_less_than_.001 <- returns[abs(returns) < .001 & returns != 0]
-hist(returns_less_than_.001)
-```
 
-```{r}
-# length(returns_less_than_.001)
-# length(returns_less_than_.01)
-# (length(returns) - length(returns_less_than_.1))/length(returns)
 
-(length(returns[abs(returns) > 5])/length(returns))
-(length(returns[abs(returns) > 4])/length(returns))
-(length(returns[abs(returns) > 3])/length(returns))
-(length(returns[abs(returns) > 2])/length(returns))
-(length(returns[abs(returns) > 1])/length(returns))
-(length(returns[abs(returns) > 5])/length(returns))
-(length(returns[abs(returns) > 5])/length(returns))
-```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
