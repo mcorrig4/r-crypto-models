@@ -1,0 +1,147 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+
+# Libraries
+```{r}
+library(quantmod)
+library(tseries)
+library(timeSeries)
+library(forecast)
+library(xts)
+library(dplyr)
+
+library(foreach)
+library(doParallel)
+```
+
+```{r}
+df <- read.csv("./data/btc/btc-final.csv", sep = "\t", header = TRUE)
+data <- df
+data$date <- as.POSIXct(data$date)
+data <- data %>% filter(date > "2015-01-27")
+head(data)
+```
+
+Ran adf.test. Both close price differences and log of differences are significant and therefore stationary. close_price_returns is stationary.
+found best model to be the ARIMA(4,0,5) based on auto.arima search.
+
+```{r}
+# m1_arima45_dif_price_close <- arima(diff(data$price_close), order=c(4,0,5))
+# m2_arima45_returns <- arima(data$close_price_returns, order = c(4,0,5))
+# m3_arima3030 <- arima(diff(data$price_close), order=c(30,0,30))
+```
+```{r}
+breakpoint <- floor(nrow(data)*(.9))
+stock <- data %>% select(date, price_close) %>% mutate(price_close = log(price_close)-log(lag(price_close))) %>% filter(date > "2015-01-27 00:05:00")
+
+# sliding window function for parallel
+sliding_window <- function(b, stock) {
+  cat(paste0("\rWorking on itteration: ", (b-294135+1), "/", 294134))
+  stock_train = stock[1:b, ]
+  m1 <- arima(stock_train$price_close, order = c(4,0,4))
+  
+  # Forecasting the log returns
+  m1_forecast = forecast(m1, h = 1,level=99)#c(80,95,99))
+
+  # Creating a series of forecasted returns for the forecasted period
+  return(xts(m1_forecast$mean[1], stock$date[b+1]))
+}
+
+forecasted_series <- xts(0, as.POSIXct("2017-01-01"))
+```
+
+# Parallel Sliding windows
+```{r}
+no_cores <- detectCores() - 3 # 8 cores on server
+cluster <- makeCluster(no_cores)
+registerDoParallel(cluster)
+clusterEvalQ(cluster,library(forecast))
+clusterEvalQ(cluster,library(xts))
+clusterExport(cluster, "breakpoint")
+clusterExport(cluster, "stock")
+
+
+pred <- foreach(b = breakpoint:nrow(stock)-2, .combine = rbind) %dopar% {
+  stock_train = stock[1:b, ]
+  m1 <- arima(stock_train$price_close, order = c(4,0,4))
+  
+  # Forecasting the log returns
+  m1_forecast = forecast(m1, h = 1,level=99)#c(80,95,99))
+
+  # Creating a series of forecasted returns for the forecasted period
+  data.frame(date = stock$date[b+1], pred = m1_forecast$mean[1], actual = stock$price_close[b+1])
+}
+pred <- pred %>% mutate(correct = if_else((pred*actual) >= 0, 1, 0))
+pred
+write.csv(pred, "./arima_pred.csv")
+
+```
+
+```{r}
+sum(pred$correct)/length(pred$correct)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

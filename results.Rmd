@@ -1,0 +1,23 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+```
+
+
+```{r}
+# pred <- read.csv("arima_pred.csv")
+pred <- pred %>% 
+  mutate(correct = if_else(pred*actual >= 0, 1, 0)) %>%
+  mutate(correct_same_as_last = if_else(lag(actual)*actual >= 0, 1, 0)) %>%
+  filter(!is.na(correct_same_as_last))
+  
+
+pred
+sum(pred$correct)/length(pred$correct)
+sum(pred$correct_same_as_last)/length(pred$correct_same_as_last)
+```
+

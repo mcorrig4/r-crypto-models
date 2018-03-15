@@ -1,0 +1,74 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r include=FALSE}
+library(lubridate)
+library(zoo)
+library(readr)
+library(caret)
+library(forecast)
+library(AppliedPredictiveModeling)
+library(e1071)
+library(TTR)
+library(DMwR)
+library(neuralnet)
+library(dplyr)
+```
+
+```{r}
+df <- read.csv("./data/btc/btc-final.csv", sep = '\t')
+```
+
+```{r}
+df
+```
+
+```{r}
+time_periods <- data.frame(`7day` = numeric(),
+                           `14day` = numeric(),
+                           `28day` = numeric())
+days7 <- 60/5*24*7
+days14 <- 60/5*24*14
+days28 <- 60/5*24*28
+```
+
+```{r}
+new_features <- data.frame(date = df$date)
+```
+
+#Moving Averages
+```{r}
+#Smooth Moving Average
+new_features$SMA7 <- SMA(df$price_close, n=days7)
+new_features$SMA14 <- SMA(df$price_close, n=days14)
+new_features$SMA28 <- SMA(df$price_close, n=days28)
+
+#Exponential Moving Average
+new_features$EMA7 <- EMA(df$price_close, n=days7)
+new_features$EMA14 <- EMA(df$price_close, n=days14)
+new_features$EMA28 <- EMA(df$price_close, n=days28)
+
+#Volume SMA and EMA
+new_features$VolSMA7 <- SMA(df$volume, n=days7)
+new_features$VolSMA14 <- SMA(df$volume, n=days14)
+new_features$VolSMA28 <- SMA(df$volume, n=days28)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

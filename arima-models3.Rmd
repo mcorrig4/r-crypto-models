@@ -20,44 +20,29 @@ library(doParallel)
 ```
 
 ```{r}
-data <- read.csv("./data/btc/btc-out.csv", sep = "\t", header = TRUE)
-
-```
-
-```{r}
-adf.test(data$price_close)
-```
-```{r}
-data_diff <- data$price_close %>% diff(lag = 1)
-adf.test(data_diff)
-```
-```{r}
-data_logdiff <- data$price_close %>% log() %>% diff(lag=1)
-adf.test(data_logdiff)
-```
-
-```{r}
-
-```
-
-
-
-```{r}
+df <- read.csv("./data/btc/btc-final.csv", sep = "\t", header = TRUE)
+data <- df
+data$date <- as.POSIXct(data$date)
+data <- data %>% filter(date > "2015-01-27")
 head(data)
 ```
 
-```{r}
-# Initialzing an xts object for Actual log returns
-actual_series = xts(0, as.POSIXct("2015-01-07 20:20:00	","%Y-%m-%d %H:%M:%S"))
- 
-# Initialzing a dataframe for the forecasted return series
-forecasted_series = data.frame(Forecasted = numeric())
+Ran adf.test. Both close price differences and log of differences are significant and therefore stationary. close_price_returns is stationary.
+found best model to be the ARIMA(4,0,5) based on auto.arima search.
 
-# Split the dataset in two parts - training and testing
-stock <- data[2:nrow(data), ]
-stock$diff <- diff(data$price_close, lag=1)
-stock$logdiff <- diff(log(data$price_close), lag=1)
-breakpoint = floor(nrow(stock)*(.8))
+```{r}
+m1_arima45_dif_price_close <- arima(diff(data$price_close), order=c(4,0,5))
+m2_arima45_returns <- arima(data$close_price_returns, order = c(4,0,5))
+m3_arima3030 <- arima(diff(data$price_close), order=c(30,0,30))
+```
+```{r}
+actual_series <- xts(0, as.POSIXct("2015-01-27 00:05:00","%Y-%m-%d %H:%M:%S"))
+actual_series 
+# Initialzing a dataframe for the forecasted return series
+forecasted_series <- data.frame(Forecasted = numeric())
+
+breakpoint <- floor(nrow(stock)*(.8))
+stock.train <- 
 ```
 
 ```{r}
