@@ -22,24 +22,40 @@ library(dplyr)
 df <- read.csv("./data/btc/btc-final.csv", sep = '\t')
 ```
 
+# Calculate 5-min periods in 7, 14, and 28 days
 ```{r}
-df
-```
-
-```{r}
-time_periods <- data.frame(`7day` = numeric(),
-                           `14day` = numeric(),
-                           `28day` = numeric())
 days7 <- 60/5*24*7
 days14 <- 60/5*24*14
 days28 <- 60/5*24*28
 ```
 
+# Make data.frame for new features
 ```{r}
 new_features <- data.frame(date = df$date)
 ```
 
-#Moving Averages
+# Volatility 
+```{r}
+# 7 day
+ohlc <- df[,c("price_open", "price_high", "price_low", "price_close")]
+new_features$Volatilityclose7 <- volatility(ohlc, n = days7, calc="close") #based on close only
+new_features$Volatilitygkyz7 <- volatility(ohlc, n = days7, calc="gk.yz") #based on open, high, low, and close
+new_features$Volatilityparkinson7 <- volatility(ohlc, n = days7, calc="parkinson") #based on high/low
+
+ohlc2 <- df[,c("close_price_returns", "price_high", "price_low", "price_close")]
+new_features$Volatilityreturns7 <- volatility(ohlc2, n = days7, calc="close", mean0=TRUE)
+
+# 40 period (200 min, 3.3333 hours)
+ohlc <- df[,c("price_open", "price_high", "price_low", "price_close")]
+new_features$Volatilityclose40 <- volatility(ohlc, n = 40, calc="close") #based on close only
+new_features$Volatilitygkyz40 <- volatility(ohlc, n = 40, calc="gk.yz") #based on open, high, low, and close
+new_features$Volatilityparkinson40 <- volatility(ohlc, n = 40, calc="parkinson") #based on high/low
+
+ohlc2 <- df[,c("close_price_returns", "price_high", "price_low", "price_close")]
+new_features$Volatilityreturns40 <- volatility(ohlc2, n = 40, calc="close", mean0=TRUE)
+```
+
+# Moving Averages
 ```{r}
 #Smooth Moving Average
 new_features$SMA7 <- SMA(df$price_close, n=days7)
@@ -55,15 +71,92 @@ new_features$EMA28 <- EMA(df$price_close, n=days28)
 new_features$VolSMA7 <- SMA(df$volume, n=days7)
 new_features$VolSMA14 <- SMA(df$volume, n=days14)
 new_features$VolSMA28 <- SMA(df$volume, n=days28)
+new_features$VolEMA7 <- EMA(df$volume, n=days7)
+new_features$VolEMA14 <- EMA(df$volume, n=days14)
+new_features$VolEMA28 <- EMA(df$volume, n=days28)
 ```
 
+# SAR (Stop-and-Reverse)
+```{r}
+hl <- df[,c("price_high", "price_low")]
+new_features$SAR <- SAR(hl)
+```
 
+# MACD
+```{r}
+#for 5 minute periods
+nFast = 12
+nSlow = 26
+nSig = 9
+MACD5min <- as.data.frame(MACD(df[,"price_close"], nFast=nFast, nSlow=nSlow, nSig=nSig, maType=EMA, percent=TRUE ))
+new_features$MACD5min <- MACD5min$macd
+new_features$MACD5minSignal <- MACD5min$signal
 
+# for days
+nFast = 12*(60/5*24) #12 days fast MA
+nSlow = 26*(60/5*24) #26 days slow MA
+nSig = 9*(60/5*24) #9 days signal moving average
+MACDday <- as.data.frame(MACD(df[,"price_close"], nFast=nFast, nSlow=nSlow, nSig=nSig, maType=EMA, percent=TRUE ))
+new_features$MACDday <- MACDday$macd
+new_features$MACDdaySignal <- MACDday$signal
 
+# for volume
+MACDvolume <- as.data.frame(MACD(df[,"volume"], nFast=nFast, nSlow=nSlow, nSig=nSig, maType=EMA, percent=FALSE ))
+new_features$MACDvolume <- MACDvolume$macd
+```
 
+# ATR (Average True Range)
+```{r}
+hlc <- df[,c("price_high", "price_low", "price_close")]
+atr <- as.data.frame(ATR(hlc, n=days7))
+new_features$ATR <- atr$atr
+atr <- atr$atr/atr$trueLow
+new_features$ATRscaled <- atr
+```
 
+# RSI (Relative Strength Index)
+```{r}
+new_features$RSI <- RSI(df$price_close, n=days14)
+new_features$RSI40 <- RSI(df$price_close, n=40)
+```
 
+# OBV (On Balance Volume)
+```{r}
+# OBV(df$price_close, df$volume)[100000:101000]
+# OBV(df$price_close, df$volume)[300000:301000]
+```
 
+# 40 Period Windows
+```{r}
+training_windows <- df %>% 
+  mutate(id = 1:nrow(df)) %>%
+  select(id, price_close, close_price_returns, volume, up, SinceUP, SinceDown) 
+training_windows$Volalility <- new_features$Volatilitygkyz40
+training_windows$VolalilityReturns <- new_features$Volatilityreturns40
+
+other_vars <- df %>% select(y_returns = yret, y_close_price = yprice) %>%
+  cbind(SAR = new_features$SAR, MACD = new_features$MACDday, ATRScaled = new_features$ATRscaled, 
+        RSI = new_features$RSI, RSI40 = new_features$RSI40)
+```
+
+```{r}
+z <- read.zoo(training_windows)
+zz <- zoo:::lag.zoo(z, 1:40) 
+
+z2 <- as.data.frame(z)
+zz2 <- as.data.frame(zz)
+
+nrow(df)
+nrow(z2)
+nrow(zz2)
+nrow(other_vars)
+
+training_windows <- cbind(date = df$date[-1], z2[-1,], zz2, other_vars[-1,])
+```
+
+```{r}
+write.table(training_windows, "data/btc/training_windows.csv", sep='\t')
+```
 
 
 
