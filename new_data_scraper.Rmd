@@ -1,0 +1,114 @@
+---
+title: "scrape 5min data"
+subtitle: "Using R to Access Cryptocurrency Exchange APIs"
+author: "Liam Corrigan"
+date: "March 20, 2018"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: false
+    theme: cerulean
+    highlight: zenburn
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+
+
+# Background
+
+# Libraries
+The special libraries used for this project are:
+```{r message=FALSE, warning=FALSE}
+# install.packages("httr")
+# install.packages("Rbitcoin")
+# install.packages("PoloniexR")
+library(httr)
+library(Rbitcoin)
+library(PoloniexR)
+```
+Install these if you don't already have them. You'll also need the following packages:
+```{r message=FALSE, warning=FALSE}
+library(quantmod)
+library(magrittr)
+library(plyr)
+library(dplyr)
+library(scales)
+library(ggplot2)
+```
+
+# Step 1: Poloniex Data
+Poloniex is the exchange where I do all my person crypto-to-crypto trading. At the time of this post Poloniex offers 69 different coins that can be traded against bitcoin.
+
+They offer an API so traders can access exchange data for things like building trading bots, or writing posts like this! [Check out the API here.](https://poloniex.com/support/api/)
+
+## Using PoloniexR
+We could use hhtr to access this API but instread we are going to test out a cool package made by VermeirJellen called PoloniexR [(check out the github here)](https://github.com/VermeirJellen/PoloniexR).
+
+First, set up the public API.
+```{r}
+poloniex_public <- PoloniexPublicAPI()
+```
+## Ticker Data
+Next, lets get a list of all the coins traded on Poloniex.
+```{r}
+ticker_info     <- ReturnTicker(poloniex_public)
+head(ticker_info)
+```
+This returns a `data.frame` where each row represents a currency pair that can be traded. Unfortunately it uses rownames as the names to dictate each currency pair, and rownames do not play well with my favourite package `dplyr`, so lets convert these rownames into a column of their own.
+
+```{r}
+ticker_info <- cbind(pairs = rownames(ticker_info), ticker_info)
+rownames(ticker_info) <- NULL
+ticker_info$pairs %<>% as.character()
+colnames(ticker_info)
+head(ticker_info)
+```
+
+## Chart Data
+Next, lets get some chart data. We will first look at getting data for the USDT_BTC pair. We will collect data back to the start of 2015 based on one day trading periods.
+
+### Get Sample Chart Data for BTC_ETH
+*_This code was copied from the PoloniexR github tutorial._
+```{r}
+# ?ReturnChartData
+Sys.setenv(tz="UTC")
+pair    <- "USDT_BTC"
+from    <- as.POSIXct("2017-01-01 00:00:00 UTC")
+to      <- as.POSIXct("2018-03-28 00:00:00 UTC")
+period  <- "5M" #"D" #"5M", "15M", "30M", "2H", "4H", "D"
+
+chart.data <- ReturnChartData(theObject = poloniex_public,
+                              pair      = pair,
+                              from      = from,
+                              to        = to,
+                              period    = period)
+head(chart.data)
+```
+The chart data is returned in an `xts` object which is essentially a `zoo` object. This type of object is special for handling time series data in R. 
+
+```{r}
+chart_data <- chart.data %>% as.data.frame()
+chart_data <- chart_data %>%
+  select(
+    price_open = open,
+    price_high = high,
+    price_low = low,
+    price_close = close
+  )
+
+write.csv(chart_data, "./data/btc/btc_poloniex/2017-01-01_2018-03-28.csv")
+
+```
+
+
+
+
+
+

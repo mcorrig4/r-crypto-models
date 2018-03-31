@@ -87,6 +87,27 @@ sum(pred$correct)/length(pred$correct)
 ```
 
 
+```{r}
+test_ans <- read.csv("data/btc/btcgraphs_cropped/test_ans.csv")
+ans <- read.csv("data/btc/btcgraphs_cropped/ans.csv")
+
+nrow(test_ans)
+nrow(ans)
+ans
+
+test_ans = test_ans[match(ans$X0, test_ans$img_name),]
+test_ans <- test_ans %>%
+  mutate(up = if_else(class == 'up', 1, 0)) %>%
+  select(img_name, class, up)
+test_ans
+write.csv(test_ans, "data/btc/btcgraphs_cropped/test_ans2.csv")
+
+log_preds <- read.csv("data/btc/btcgraphs_cropped/log_preds.csv")
+log_preds <- exp(log_preds)
+is_up <- log_preds$X1 >= log_preds$X0
+
+sum(is_up == test_ans$up)/length(is_up)
+```
 
 
 

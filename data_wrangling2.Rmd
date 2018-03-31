@@ -146,18 +146,47 @@ zz <- zoo:::lag.zoo(z, 1:40)
 z2 <- as.data.frame(z)
 zz2 <- as.data.frame(zz)
 
+zz2 <- rbind(zz2, zz2[1,]) #add and extra row to the beginning of the lags to make it the same lengths as other data.frames
+
 nrow(df)
 nrow(z2)
 nrow(zz2)
 nrow(other_vars)
 
-training_windows <- cbind(date = df$date[-1], z2[-1,], zz2, other_vars[-1,])
+
+training_windows <- cbind(date = df$date, z2, zz2, other_vars)
+training_windows <- training_windows[-nrow(training_windows), ] #remove the incorrect final row
+```
+
+
+```{r}
+training_windows$date <- as.POSIXct(training_windows$date)
+```
+
+
+```{r}
+is.nan.data.frame <- function(x) do.call(cbind, lapply(x, is.nan))
+
+tmp <- training_windows %>% filter(date > "2015-01-27")
+tmp2 <- tmp[!complete.cases(tmp),]
+
+
+sapply(tmp2, function(x){sum(is.nan(x))}) %>% max
+
+tmp2[is.nan(tmp2)] <- 0
+
+sapply(tmp2, function(x){sum(is.nan(x))}) %>% max
+```
+
+
+```{r}
+write_tsv(training_windows, "data/btc/training_windows.csv")
+# write.table(training_windows, "data/btc/training_windows.csv", sep='\t')
 ```
 
 ```{r}
-write.table(training_windows, "data/btc/training_windows.csv", sep='\t')
+write.table(new_features, "data/btc/indicators.csv", sep='\t')
 ```
-
 
 
 
